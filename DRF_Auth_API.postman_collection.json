@@ -1,0 +1,152 @@
+{
+	"info": {
+		"_postman_id": "b1e2c3d4-5a6b-4c7d-8e9f-0a1b2c3d4e5f",
+		"name": "DRF Auth API",
+		"description": "Complete authentication REST API built with Django REST Framework + SimpleJWT.\n\nBase URL defaults to http://127.0.0.1:8000 — change the `baseUrl` collection variable if you run the server on another port.\n\nRegister first, then verify the email (the token is printed to the Django console — the `Verify Email` request has a test script that can read it from the `verificationToken` variable you set manually), then log in. Login and refresh requests automatically save tokens to collection variables, so protected requests work out of the box.",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+	},
+	"variable": [
+		{ "key": "baseUrl", "value": "http://127.0.0.1:8000" },
+		{ "key": "accessToken", "value": "" },
+		{ "key": "refreshToken", "value": "" },
+		{ "key": "email", "value": "jane@example.com" },
+		{ "key": "username", "value": "jane" },
+		{ "key": "password", "value": "Str0ngPass!x" },
+		{ "key": "verificationToken", "value": "" },
+		{ "key": "resetUid", "value": "" },
+		{ "key": "resetToken", "value": "" }
+	],
+	"item": [
+		{
+			"name": "Auth",
+			"item": [
+				{
+					"name": "Register",
+					"request": {
+						"method": "POST",
+						"header": [{ "key": "Content-Type", "value": "application/json" }],
+						"body": { "mode": "raw", "raw": "{\n  \"email\": \"{{email}}\",\n  \"username\": \"{{username}}\",\n  \"password\": \"{{password}}\",\n  \"password2\": \"{{password}}\"\n}" },
+						"url": { "raw": "{{baseUrl}}/api/auth/register/", "host": ["{{baseUrl}}"], "path": ["api", "auth", "register", ""] },
+						"description": "Creates the user and sends a verification email. With the console email backend, the link (and token) is printed in the Django server terminal. Copy the token into the `verificationToken` variable for the next request."
+					}
+				},
+				{
+					"name": "Verify Email",
+					"request": {
+						"method": "POST",
+						"header": [{ "key": "Content-Type", "value": "application/json" }],
+						"body": { "mode": "raw", "raw": "{\n  \"token\": \"{{verificationToken}}\"\n}" },
+						"url": { "raw": "{{baseUrl}}/api/auth/verify-email/", "host": ["{{baseUrl}}"], "path": ["api", "auth", "verify-email", ""] }
+					}
+				},
+				{
+					"name": "Resend Verification",
+					"request": {
+						"method": "POST",
+						"header": [{ "key": "Content-Type", "value": "application/json" }],
+						"body": { "mode": "raw", "raw": "{\n  \"email\": \"{{email}}\"\n}" },
+						"url": { "raw": "{{baseUrl}}/api/auth/resend-verification/", "host": ["{{baseUrl}}"], "path": ["api", "auth", "resend-verification", ""] }
+					}
+				},
+				{
+					"name": "Login",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"const data = pm.response.json();",
+									"if (data.access) {",
+									"  pm.collectionVariables.set('accessToken', data.access);",
+									"  pm.collectionVariables.set('refreshToken', data.refresh);",
+									"}"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [{ "key": "Content-Type", "value": "application/json" }],
+						"body": { "mode": "raw", "raw": "{\n  \"email\": \"{{email}}\",\n  \"password\": \"{{password}}\"\n}" },
+						"url": { "raw": "{{baseUrl}}/api/auth/login/", "host": ["{{baseUrl}}"], "path": ["api", "auth", "login", ""] },
+						"description": "Returns access and refresh JWTs. The test script saves both into collection variables automatically. Returns 403 if the email is not verified."
+					}
+				},
+				{
+					"name": "Refresh Token",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"const data = pm.response.json();",
+									"if (data.access) { pm.collectionVariables.set('accessToken', data.access); }",
+									"if (data.refresh) { pm.collectionVariables.set('refreshToken', data.refresh); }"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [{ "key": "Content-Type", "value": "application/json" }],
+						"body": { "mode": "raw", "raw": "{\n  \"refresh\": \"{{refreshToken}}\"\n}" },
+						"url": { "raw": "{{baseUrl}}/api/auth/refresh/", "host": ["{{baseUrl}}"], "path": ["api", "auth", "refresh", ""] },
+						"description": "Rotation is enabled, so the response contains a new refresh token too — both are saved."
+					}
+				},
+				{
+					"name": "Logout",
+					"request": {
+						"method": "POST",
+						"auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{accessToken}}" }] },
+						"header": [{ "key": "Content-Type", "value": "application/json" }],
+						"body": { "mode": "raw", "raw": "{\n  \"refresh\": \"{{refreshToken}}\"\n}" },
+						"url": { "raw": "{{baseUrl}}/api/auth/logout/", "host": ["{{baseUrl}}"], "path": ["api", "auth", "logout", ""] },
+						"description": "Blacklists the refresh token. Requires an access token in the Authorization header."
+					}
+				},
+				{
+					"name": "Me",
+					"request": {
+						"method": "GET",
+						"auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{accessToken}}" }] },
+						"url": { "raw": "{{baseUrl}}/api/auth/me/", "host": ["{{baseUrl}}"], "path": ["api", "auth", "me", ""] },
+						"description": "GET returns the current user; PATCH with {\"username\": \"newname\"} updates it. Requires auth."
+					}
+				},
+				{
+					"name": "Change Password",
+					"request": {
+						"method": "POST",
+						"auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{accessToken}}" }] },
+						"header": [{ "key": "Content-Type", "value": "application/json" }],
+						"body": { "mode": "raw", "raw": "{\n  \"current_password\": \"{{password}}\",\n  \"new_password\": \"N3wStr0ng!Pass\"\n}" },
+						"url": { "raw": "{{baseUrl}}/api/auth/change-password/", "host": ["{{baseUrl}}"], "path": ["api", "auth", "change-password", ""] },
+						"description": "Requires the current password. Log in again afterwards. Update the `password` variable to keep later requests working."
+					}
+				},
+				{
+					"name": "Reset Password — Request Email",
+					"request": {
+						"method": "POST",
+						"header": [{ "key": "Content-Type", "value": "application/json" }],
+						"body": { "mode": "raw", "raw": "{\n  \"email\": \"{{email}}\"\n}" },
+						"url": { "raw": "{{baseUrl}}/api/auth/reset-password/", "host": ["{{baseUrl}}"], "path": ["api", "auth", "reset-password", ""] },
+						"description": "Sends a reset email. With the console backend, the link in the server terminal contains uid and token — put them into the `resetUid` and `resetToken` variables."
+					}
+				},
+				{
+					"name": "Reset Password — Confirm",
+					"request": {
+						"method": "POST",
+						"header": [{ "key": "Content-Type", "value": "application/json" }],
+						"body": { "mode": "raw", "raw": "{\n  \"uid\": \"{{resetUid}}\",\n  \"token\": \"{{resetToken}}\",\n  \"new_password\": \"R3setPass!ok\"\n}" },
+						"url": { "raw": "{{baseUrl}}/api/auth/reset-password/confirm/", "host": ["{{baseUrl}}"], "path": ["api", "auth", "reset-password", "confirm", ""] }
+					}
+				}
+			]
+		}
+	]
+}
